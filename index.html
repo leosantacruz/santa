@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Santa.com.ar</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="scroll-space"></div>
+<div class="container">
+    Fire Scroll
+    <canvas id="canvas"></canvas>
+</div>
+
+
+<script type="x-shader/x-fragment" id="fragmentShader">
+
+    varying vec2 vUv;
+    uniform float u_ratio;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_shape_offset;
+    uniform float u_power;
+    uniform float u_addition;
+
+    // Simplex noise taken from
+    // https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83
+    vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+    float snoise(vec2 v){
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+        -0.577350269189626, 0.024390243902439);
+        vec2 i = floor(v + dot(v, C.yy));
+        vec2 x0 = v - i + dot(i, C.xx);
+        vec2 i1;
+        i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod(i, 289.0);
+        vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0))
+        + i.x + vec3(0.0, i1.x, 1.0));
+        vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy),
+        dot(x12.zw, x12.zw)), 0.0);
+        m = m*m;
+        m = m*m;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+        vec3 g;
+        g.x = a0.x * x0.x + h.x * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+    }
+
+    // Color space transform taken from
+    // https://gist.github.com/983/e170a24ae8eba2cd174f
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
+
+    const float STEPS = 4.;
+
+    float get_noise(vec2 uv, float t){
+        float SCALE = 8.;
+        float noise = snoise(vec2(uv.x * SCALE, uv.y * .4 * SCALE - t));
+        SCALE = 10.;
+        noise += .2 * snoise(vec2(uv.x * SCALE + 1.5 * t, uv.y * .6 * SCALE));
+        noise = min(1., .5 * noise + u_addition);
+        return noise;
+    }
+
+
+    void main () {
+        vec2 uv = vUv;
+        uv.y /= u_ratio;
+
+        float t = u_time * u_speed;
+
+        float noise = get_noise(uv, t);
+        float shape = pow(.8 * uv.y * u_ratio, .5);
+        shape += 5. * pow(abs(uv.x - .5), 2.);
+        shape *= u_shape_offset;
+
+        float stepped_noise = floor(get_noise(uv, t) * STEPS) / STEPS;
+        float d = pow(stepped_noise, u_power);
+        d *= (1.2 - shape);
+
+        vec3 hsv = vec3(d * .15, .8 - .2 * d, d + .5 + .1 * uv.y);
+        vec3 col = hsv2rgb(hsv);
+
+		  col *= smoothstep(shape, shape + .2, noise);
+        gl_FragColor = vec4(col, step(shape, noise) - .5);
+    }
+
+</script>
+
+
+<script type="x-shader/x-vertex" id="vertexShader">
+    varying vec2 vUv;
+    void main() {
+        vUv = uv;
+        gl_Position = vec4(position, 1.);
+    }
+</script>
+<script src="https://unpkg.co/gsap@3/dist/gsap.min.js"></script>
+<script src="https://unpkg.com/gsap@3/dist/ScrollTrigger.min.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>
