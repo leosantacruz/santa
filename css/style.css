@@ -26,3 +26,14 @@ html, body {
     top: 0;
     left: 0;
 }
+
+.text div {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+.text div:last-child {
+    font-weight: bold;
+    font-size: 140%
+}
